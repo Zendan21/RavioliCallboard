@@ -23,36 +23,13 @@ local COLORS = {
     muted = { 0.58, 0.62, 0.68, 1 },
     green = { 0.35, 0.78, 0.48, 1 },
     red = { 0.88, 0.32, 0.30, 1 },
-    input = { 0.025, 0.030, 0.040, 1 },
-    hover = { 0.14, 0.16, 0.20, 1 },
+    current = { 0.090, 0.102, 0.125, 1 },
+    selected = { 0.090, 0.102, 0.125, 1 },
+    normal = { 0.065, 0.075, 0.095, 0.98 },
 }
 
-local COLOR_CODES = {
-    gold = "|cffdba340",
-    text = "|cffebebeb",
-    muted = "|cff949ead",
-    green = "|cff59c77a",
-    red = "|cffe0524d",
-}
-
-local FONT = "Fonts\\FRIZQT__.TTF"
-
-local function setTextStyle(label, size, color, justify)
-    if not label then
-        return label
-    end
-    if size and size >= 15 and GameFontNormalLarge then
-        label:SetFontObject(GameFontNormalLarge)
-    elseif size and size <= 11 and GameFontHighlightSmall then
-        label:SetFontObject(GameFontHighlightSmall)
-    elseif GameFontHighlight then
-        label:SetFontObject(GameFontHighlight)
-    end
-    color = color or COLORS.text
-    label:SetTextColor(color[1], color[2], color[3], color[4] or 1)
-    label:SetJustifyH(justify or "LEFT")
-    label:SetJustifyV("MIDDLE")
-    return label
+local function setTextureColor(texture, color)
+    texture:SetTexture(color[1], color[2], color[3], color[4] or 1)
 end
 
 local function setBackdrop(frame, color, border)
@@ -60,84 +37,135 @@ local function setBackdrop(frame, color, border)
         return
     end
     frame:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 12,
-        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+        bgFile = "Interface\\Buttons\\WHITE8X8",
+        edgeFile = "Interface\\Buttons\\WHITE8X8",
+        tile = false,
+        edgeSize = 1,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 },
     })
     frame:SetBackdropColor(unpack(color or COLORS.panel))
     frame:SetBackdropBorderColor(unpack(border or COLORS.border))
 end
 
-local function refreshButtonStyle(button)
-    local kind = button.styleKind or "normal"
-    local border = COLORS.border
-    local textColor = COLORS.text
-    if kind == "primary" then
-        border = COLORS.gold
-    elseif kind == "success" then
-        border = COLORS.green
-    elseif kind == "danger" then
-        border = COLORS.red
-        textColor = COLORS.red
-    end
-    if button.label then
-        button.label:SetTextColor(textColor[1], textColor[2], textColor[3], textColor[4] or 1)
-    end
-end
-
-local function setButtonKind(button, kind)
-    button.styleKind = kind or "normal"
-    refreshButtonStyle(button)
-end
-
-local function styleButton(button, text, kind)
-    button:SetText(text or "")
-    button.label = button:GetFontString()
-    if button.label then
-        setTextStyle(button.label, 11, COLORS.text, "CENTER")
-    end
-    setButtonKind(button, kind)
+local function makeButton(parent, text, width, height)
+    local button = CreateFrame("Button", nil, parent)
+    button:SetWidth(width)
+    button:SetHeight(height)
+    setBackdrop(button, COLORS.panelLight, COLORS.border)
+    button.label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    button.label:SetAllPoints()
+    button.label:SetText(text or "")
+    button.label:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    button:SetScript("OnEnter", function(self)
+        if self:IsEnabled() == 1 then
+            self:SetBackdropColor(0.14, 0.16, 0.20, 1)
+            self:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 0.8)
+        end
+    end)
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(COLORS.panelLight[1], COLORS.panelLight[2], COLORS.panelLight[3], COLORS.panelLight[4])
+        self:SetBackdropBorderColor(COLORS.border[1], COLORS.border[2], COLORS.border[3], COLORS.border[4])
+    end)
+    button:SetScript("OnMouseDown", function(self)
+        if self:IsEnabled() == 1 then
+            self.label:ClearAllPoints()
+            self.label:SetPoint("CENTER", 1, -1)
+        end
+    end)
+    button:SetScript("OnMouseUp", function(self)
+        self.label:ClearAllPoints()
+        self.label:SetAllPoints()
+    end)
     function button:SetButtonEnabled(enabled)
         if enabled then
             self:Enable()
-            self:SetAlpha(1)
+            self.label:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
         else
             self:Disable()
-            self:SetAlpha(0.48)
+            self.label:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
         end
-        refreshButtonStyle(self)
     end
     return button
 end
 
-local function makeButton(parent, text, width, height, kind)
-    local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
-    button:SetWidth(width)
-    button:SetHeight(height)
-    return styleButton(button, text, kind)
+local function styleSecureButton(button, text)
+    button:SetWidth(button:GetWidth())
+    setBackdrop(button, COLORS.panelLight, COLORS.border)
+    button.label = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    button.label:SetAllPoints()
+    button.label:SetText(text or "")
+    button.label:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    button:SetScript("OnEnter", function(self)
+        self:SetBackdropColor(0.14, 0.16, 0.20, 1)
+        self:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 0.8)
+    end)
+    button:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(COLORS.panelLight[1], COLORS.panelLight[2], COLORS.panelLight[3], COLORS.panelLight[4])
+        self:SetBackdropBorderColor(COLORS.border[1], COLORS.border[2], COLORS.border[3], COLORS.border[4])
+    end)
+    button:SetScript("OnMouseDown", function(self)
+        self.label:ClearAllPoints()
+        self.label:SetPoint("CENTER", 1, -1)
+    end)
+    button:SetScript("OnMouseUp", function(self)
+        self.label:ClearAllPoints()
+        self.label:SetAllPoints()
+    end)
+    return button
 end
 
-local function makeInput(parent, name)
-    local input = CreateFrame("EditBox", name, parent, "InputBoxTemplate")
-    input:SetAutoFocus(false)
-    if ChatFontNormal then
-        input:SetFontObject(ChatFontNormal)
+local function setButtonText(button, text)
+    if button and button.label then
+        button.label:SetText(text or "")
     end
+end
+
+local function makeInput(parent, width, height, maxLetters)
+    local holder = CreateFrame("Frame", nil, parent)
+    holder:SetWidth(width)
+    holder:SetHeight(height)
+    setBackdrop(holder, { 0.025, 0.030, 0.040, 1 }, COLORS.border)
+    local input = CreateFrame("EditBox", nil, holder)
+    input:SetPoint("TOPLEFT", 9, -2)
+    input:SetPoint("BOTTOMRIGHT", -9, 2)
+    input:SetFont("Fonts\\FRIZQT__.TTF", 12)
     input:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
-    return input
+    input:SetAutoFocus(false)
+    input:SetJustifyH("LEFT")
+    input:SetMaxLetters(maxLetters or 80)
+    input:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    holder.input = input
+    return holder, input
 end
 
 local function makeCheckbox(parent, label)
-    local checkbox = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    checkbox:SetWidth(24)
-    checkbox:SetHeight(24)
+    local checkbox = CreateFrame("Button", nil, parent)
+    checkbox:SetWidth(18)
+    checkbox:SetHeight(18)
+    setBackdrop(checkbox, COLORS.panelLight, COLORS.border)
+    checkbox.mark = checkbox:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    checkbox.mark:SetAllPoints()
+    checkbox.mark:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     checkbox.label = checkbox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     checkbox.label:SetPoint("LEFT", checkbox, "RIGHT", 4, 0)
     checkbox.label:SetText(label)
-    checkbox.label:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
+    checkbox.checked = false
+    function checkbox:SetChecked(value)
+        self.checked = value and true or false
+        self.mark:SetText(self.checked and "X" or "")
+        self:SetBackdropBorderColor(
+            self.checked and COLORS.gold[1] or COLORS.border[1],
+            self.checked and COLORS.gold[2] or COLORS.border[2],
+            self.checked and COLORS.gold[3] or COLORS.border[3],
+            1
+        )
+    end
+    function checkbox:GetChecked()
+        return self.checked
+    end
+    checkbox:SetScript("OnClick", function(self)
+        self:SetChecked(not self:GetChecked())
+    end)
     return checkbox
 end
 
@@ -147,63 +175,48 @@ local function makePanel(parent, title, width, height)
     panel:SetHeight(height)
     setBackdrop(panel, COLORS.panel)
 
-    panel.title = panel:CreateFontString(nil, "OVERLAY")
+    panel.title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     panel.title:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -10)
     panel.title:SetText(title)
-    setTextStyle(panel.title, 12, COLORS.gold, "LEFT")
+    panel.title:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     return panel
 end
 
-local function setRowState(row, background, border)
-    row.baseBackground = background or COLORS.panel
-    row.baseBorder = border or COLORS.border
-    row:SetBackdropColor(unpack(row.baseBackground))
-    row:SetBackdropBorderColor(unpack(row.baseBorder))
+local function addHeaderBand(frame, height)
+    local texture = frame:CreateTexture(nil, "BACKGROUND")
+    texture:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
+    texture:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -1, -1)
+    texture:SetHeight(height or 44)
+    setTextureColor(texture, { 0.055, 0.062, 0.078, 1 })
+    return texture
 end
 
-local function addRowHover(row)
-    row:SetScript("OnEnter", function(self)
-        self:SetBackdropColor(unpack(COLORS.hover))
-        self:SetBackdropBorderColor(unpack(COLORS.gold))
-    end)
-    row:SetScript("OnLeave", function(self)
-        setRowState(self, self.baseBackground, self.baseBorder)
-    end)
+local function clampOffset(offset, count, visible)
+    return math.max(0, math.min(offset or 0, math.max(0, count - visible)))
 end
 
-local function statusColor(message)
+local function getStatusColor(message)
     local lower = string.lower(tostring(message or ""))
     if string.find(lower, "stopped", 1, true)
         or string.find(lower, "could not", 1, true)
         or string.find(lower, "not enough", 1, true)
         or string.find(lower, "repeat-locked", 1, true)
-        or string.find(lower, "unavailable", 1, true)
-        or string.find(lower, "failed", 1, true)
     then
         return COLORS.red
-    end
-    if string.find(lower, "completed", 1, true)
+    elseif string.find(lower, "completed", 1, true)
         or string.find(lower, "route complete", 1, true)
-        or string.find(lower, "accepted", 1, true)
         or string.find(lower, "saved", 1, true)
-        or string.find(lower, "imported", 1, true)
-        or string.find(lower, "added:", 1, true)
-        or string.find(lower, "settings saved", 1, true)
+        or string.find(lower, "accepted", 1, true)
     then
         return COLORS.green
-    end
-    if string.find(lower, "running", 1, true)
+    elseif string.find(lower, "running", 1, true)
         or string.find(lower, "waiting", 1, true)
         or string.find(lower, "reroll", 1, true)
-        or string.find(lower, "active step", 1, true)
+        or string.find(lower, "active", 1, true)
     then
         return COLORS.gold
     end
     return COLORS.muted
-end
-
-local function clampOffset(offset, count, visible)
-    return math.max(0, math.min(offset or 0, math.max(0, count - visible)))
 end
 
 local function createRouteRow(parent, index)
@@ -211,24 +224,27 @@ local function createRouteRow(parent, index)
     row:SetHeight(27)
     row:SetPoint("LEFT", parent, "LEFT", 8, 0)
     row:SetPoint("RIGHT", parent, "RIGHT", -8, 0)
-    setBackdrop(row, COLORS.panel, COLORS.border)
-    setRowState(row, COLORS.panel, COLORS.border)
-    addRowHover(row)
+    setBackdrop(row, COLORS.normal, COLORS.border)
 
-    row.number = row:CreateFontString(nil, "OVERLAY")
+    row.number = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     row.number:SetPoint("LEFT", row, "LEFT", 7, 0)
     row.number:SetWidth(32)
     row.number:SetJustifyH("RIGHT")
-    setTextStyle(row.number, 11, COLORS.gold, "RIGHT")
 
-    row.label = row:CreateFontString(nil, "OVERLAY")
+    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.label:SetPoint("LEFT", row.number, "RIGHT", 8, 0)
     row.label:SetPoint("RIGHT", row, "RIGHT", -8, 0)
     row.label:SetJustifyH("LEFT")
-    setTextStyle(row.label, 11, COLORS.text, "LEFT")
 
     row:SetScript("OnClick", function(self)
         UI.selectedRouteIndex = self.routeIndex
+        UI:Refresh()
+    end)
+    row:SetScript("OnEnter", function(self)
+        self:SetBackdropColor(0.14, 0.16, 0.20, 1)
+        self:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 0.8)
+    end)
+    row:SetScript("OnLeave", function(self)
         UI:Refresh()
     end)
     return row
@@ -240,9 +256,7 @@ local function createCatalogRow(parent, index)
     row:SetPoint("LEFT", parent, "LEFT", 8, 0)
     row:SetPoint("RIGHT", parent, "RIGHT", -8, 0)
     row:EnableMouse(true)
-    setBackdrop(row, COLORS.panel, COLORS.border)
-    setRowState(row, COLORS.panel, COLORS.border)
-    addRowHover(row)
+    setBackdrop(row, COLORS.normal, COLORS.border)
 
     row.add = makeButton(row, "+", 28, 21)
     row.add:SetPoint("LEFT", row, "LEFT", 5, 0)
@@ -272,15 +286,21 @@ local function createCatalogRow(parent, index)
         end
     end)
 
-    row.label = row:CreateFontString(nil, "OVERLAY")
+    row.label = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     row.label:SetPoint("LEFT", row.add, "RIGHT", 7, 0)
     row.label:SetPoint("RIGHT", row.info, "LEFT", -5, 0)
     row.label:SetJustifyH("LEFT")
-    setTextStyle(row.label, 11, COLORS.text, "LEFT")
     row:SetScript("OnMouseUp", function(self)
         if self.groupId then
             UI:ToggleCatalogGroup(self.groupId)
         end
+    end)
+    row:SetScript("OnEnter", function(self)
+        self:SetBackdropColor(0.14, 0.16, 0.20, 1)
+        self:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 0.8)
+    end)
+    row:SetScript("OnLeave", function(self)
+        UI:Refresh()
     end)
     return row
 end
@@ -315,14 +335,14 @@ function UI:ToggleQuestDetails(key, owner)
     self.detailPopup.questKey = key
     self.detailPopup.title:SetText(Core.QuestTitle(quest))
     self.detailPopup.meta:SetText(classification.label
-        .. (quest.questId and ("  " .. COLOR_CODES.muted .. "Quest #" .. tostring(quest.questId) .. "|r") or ""))
+        .. (quest.questId and "  |cff888888Quest #" .. tostring(quest.questId) .. "|r" or ""))
     self.detailPopup.objective:SetText(objective)
     self.detailPopup.add.questKey = key
     if Core.RouteContains(Addon.profile and Addon.profile.route, key) then
-        self.detailPopup.add:SetText("Already Added")
+        setButtonText(self.detailPopup.add, "Already Added")
         self.detailPopup.add:SetButtonEnabled(false)
     else
-        self.detailPopup.add:SetText("Add to Route")
+        setButtonText(self.detailPopup.add, "Add to Route")
         self.detailPopup.add:SetButtonEnabled(true)
     end
 
@@ -387,10 +407,10 @@ function UI:UpdateSummonCooldown()
     self.lastSummonCooldownSecond = seconds
     local label = seconds > 0 and ("Callboard " .. tostring(seconds) .. "s") or "Summon Board"
     if self.summon then
-        self.summon:SetText(label)
+        setButtonText(self.summon, label)
     end
     if self.miniSummon then
-        self.miniSummon:SetText(label)
+        setButtonText(self.miniSummon, label)
     end
 end
 
@@ -434,7 +454,7 @@ function UI:RefreshMini()
     local lines = {}
 
     if currentIndex > routeCount or routeCount == 0 then
-        table.insert(lines, COLOR_CODES.muted .. "Route complete|r")
+        table.insert(lines, "|cffaaaaaaRoute complete|r")
         shownCount = 1
     else
         for offset = 0, shownCount - 1 do
@@ -451,9 +471,9 @@ function UI:RefreshMini()
             local quest = key and Addon.db.knownQuests[key]
             local title = quest and Core.QuestTitle(quest) or tostring(key or "Unknown quest")
             if offset == 0 then
-                table.insert(lines, COLOR_CODES.gold .. "> " .. tostring(routeIndex) .. ". " .. title .. "|r")
+                table.insert(lines, "|cffffcc00> " .. tostring(routeIndex) .. ". " .. title .. "|r")
             else
-                table.insert(lines, "  " .. tostring(routeIndex) .. ". " .. COLOR_CODES.text .. title .. "|r")
+                table.insert(lines, "  " .. tostring(routeIndex) .. ". |cffffffff" .. title .. "|r")
             end
         end
         shownCount = table.getn(lines)
@@ -464,8 +484,8 @@ function UI:RefreshMini()
         or "RavioliCallboard Route")
     self.miniCurrent:SetText(table.concat(lines, "\n"))
     self.miniStatus:SetText(Addon.statusMessage or "")
-    local miniStatusColor = statusColor(Addon.statusMessage)
-    self.miniStatus:SetTextColor(unpack(miniStatusColor))
+    local miniStatusColor = getStatusColor(Addon.statusMessage)
+    self.miniStatus:SetTextColor(miniStatusColor[1], miniStatusColor[2], miniStatusColor[3])
 
     local minimumHeight = 134 + (shownCount * 16)
     if self.miniFrame.SetMinResize then
@@ -487,7 +507,7 @@ function UI:RefreshGroupProgress()
         return
     end
     if Addon.profile.showGroupProgress ~= true then
-        self.miniGroup:SetText("Group Off")
+        setButtonText(self.miniGroup, "Group Off")
         self.groupProgressFrame.subtitle:SetText("Live group progress is disabled in Settings.")
         self.groupProgressText:SetText("")
         return
@@ -496,36 +516,36 @@ function UI:RefreshGroupProgress()
     local group = Addon.Group
     local display = group and group.GetDisplay and group:GetDisplay() or nil
     if not display then
-        self.miniGroup:SetText("Group")
+        setButtonText(self.miniGroup, "Group")
         return
     end
 
     if display.grouped then
-        self.miniGroup:SetText("Group " .. tostring(display.completeCount) .. "/" .. tostring(display.memberCount))
+        setButtonText(self.miniGroup, "Group " .. tostring(display.completeCount) .. "/" .. tostring(display.memberCount))
     else
-        self.miniGroup:SetText("Group")
+        setButtonText(self.miniGroup, "Group")
     end
     self.groupProgressFrame.subtitle:SetText(display.title)
 
     local lines = {}
     if not display.grouped then
-        table.insert(lines, COLOR_CODES.muted .. "You are not currently in a group.|r")
+        table.insert(lines, "|cffaaaaaaYou are not currently in a group.|r")
     else
         for index = 1, table.getn(display.rows or {}) do
             local row = display.rows[index]
-            local color = COLOR_CODES.text
+            local color = "|cffffffff"
             if row.color == "complete" then
-                color = COLOR_CODES.green
+                color = "|cff55ff55"
             elseif row.color == "missing" then
-                color = COLOR_CODES.gold
+                color = "|cffffaa55"
             elseif row.color == "unknown" then
-                color = COLOR_CODES.muted
+                color = "|cff888888"
             end
             table.insert(lines, color .. tostring(row.name) .. "|r  —  " .. tostring(row.status))
         end
         if display.addonCount < display.memberCount then
             table.insert(lines, "")
-            table.insert(lines, COLOR_CODES.muted .. "No addon data means that player has not responded from RavioliCallboard.|r")
+            table.insert(lines, "|cff888888No addon data means that player has not responded from RavioliCallboard.|r")
         end
     end
 
@@ -613,7 +633,7 @@ function UI:UpdateRouteSaveButton()
     local name = self.routeManagerName:GetText() or ""
     name = name:gsub("^%s+", ""):gsub("%s+$", "")
     local exists = Addon.profile and Addon.profile.savedRoutes and Addon.profile.savedRoutes[name]
-    self.routeManagerSave:SetText(exists and "Overwrite" or "Save Current")
+    setButtonText(self.routeManagerSave, exists and "Overwrite" or "Save Current")
 end
 
 function UI:RefreshRouteManager()
@@ -622,26 +642,19 @@ function UI:RefreshRouteManager()
     end
     local names = sortedSavedRouteNames()
     self.savedRouteOffset = clampOffset(self.savedRouteOffset, table.getn(names), 8)
-    if self.routeManagerEmpty then
-        if table.getn(names) == 0 then
-            self.routeManagerEmpty:Show()
-        else
-            self.routeManagerEmpty:Hide()
-        end
-    end
 
     for visibleIndex = 1, 8 do
         local row = self.savedRouteRows[visibleIndex]
         local name = names[self.savedRouteOffset + visibleIndex]
         if name then
             local saved = Addon.profile.savedRoutes[name]
-            local activePrefix = Addon.profile.activeRouteName == name and (COLOR_CODES.green .. "*|r ") or ""
-            local loopSuffix = saved.autoLoop and ("  " .. COLOR_CODES.gold .. "[Loop]|r") or ""
+            local activePrefix = Addon.profile.activeRouteName == name and "|cff66ff66*|r " or ""
+            local loopSuffix = saved.autoLoop and "  |cffffcc00[Loop]|r" or ""
             row.load.routeName = name
             row.share.routeName = name
             row.delete.routeName = name
-            row.load:SetText(activePrefix .. name .. loopSuffix)
-            row.delete:SetText(self.pendingDeleteName == name and "Confirm" or "Delete")
+            setButtonText(row.load, activePrefix .. name .. loopSuffix)
+            setButtonText(row.delete, self.pendingDeleteName == name and "Confirm" or "Delete")
             row:Show()
         else
             row.load.routeName = nil
@@ -701,9 +714,9 @@ function UI:Create()
     end
 
     local frame = CreateFrame("Frame", "RavioliCallboardFrame", UIParent)
-    frame:SetWidth(900)
-    frame:SetHeight(590)
-    frame:SetFrameStrata("DIALOG")
+    frame:SetWidth(940)
+    frame:SetHeight(620)
+    frame:SetFrameStrata("HIGH")
     frame:SetClampedToScreen(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
@@ -734,36 +747,50 @@ function UI:Create()
     local window = Addon.profile and Addon.profile.window or {}
     frame:SetPoint(window.point or "CENTER", UIParent, window.relativePoint or "CENTER", window.x or 0, window.y or 0)
 
-    frame.title = frame:CreateFontString(nil, "OVERLAY")
-    frame.title:SetPoint("TOPLEFT", frame, "TOPLEFT", 18, -16)
+    frame.header = CreateFrame("Frame", nil, frame)
+    frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
+    frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -1, -1)
+    frame.header:SetHeight(60)
+    frame.header.texture = frame.header:CreateTexture(nil, "BACKGROUND")
+    frame.header.texture:SetAllPoints()
+    setTextureColor(frame.header.texture, { 0.055, 0.062, 0.078, 1 })
+
+    frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    frame.title:SetPoint("TOPLEFT", frame.header, "TOPLEFT", 18, -13)
     frame.title:SetText("RavioliCallboard")
-    setTextStyle(frame.title, 16, COLORS.gold, "LEFT")
+    frame.title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    frame.subtitle = frame:CreateFontString(nil, "OVERLAY")
-    frame.subtitle:SetPoint("LEFT", frame.title, "RIGHT", 12, 0)
+    frame.subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    frame.subtitle:SetPoint("TOPLEFT", frame.header, "TOPLEFT", 18, -38)
     frame.subtitle:SetText("Ordered Callboard route builder")
-    setTextStyle(frame.subtitle, 11, COLORS.muted, "LEFT")
+    frame.subtitle:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    frame.close = makeButton(frame, "X", 28, 24)
-    frame.close:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -10)
+    frame.close = makeButton(frame.header, "X", 28, 28)
+    frame.close:SetPoint("TOPRIGHT", frame.header, "TOPRIGHT", -12, -12)
     frame.close:SetScript("OnClick", function()
         frame:Hide()
     end)
 
-    frame.settingsButton = makeButton(frame, "Settings", 72, 24)
-    frame.settingsButton:SetPoint("RIGHT", frame.close, "LEFT", -6, 0)
+    frame.settingsButton = makeButton(frame.header, "Settings", 76, 28)
+    frame.settingsButton:SetPoint("RIGHT", frame.close, "LEFT", -8, 0)
     frame.settingsButton:SetScript("OnClick", function()
         UI:ToggleSettings()
     end)
 
-    frame.routesButton = makeButton(frame, "Routes", 66, 24)
-    frame.routesButton:SetPoint("RIGHT", frame.settingsButton, "LEFT", -6, 0)
+    frame.routesButton = makeButton(frame.header, "Routes", 76, 28)
+    frame.routesButton:SetPoint("RIGHT", frame.settingsButton, "LEFT", -8, 0)
     frame.routesButton:SetScript("OnClick", function()
         UI:ToggleRouteManager()
     end)
 
-    self.routePanel = makePanel(frame, "Quest route", 426, 430)
-    self.routePanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -52)
+    self.navPanel = CreateFrame("Frame", nil, frame)
+    self.navPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -61)
+    self.navPanel:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 1, 1)
+    self.navPanel:SetWidth(152)
+    setBackdrop(self.navPanel, { 0.045, 0.052, 0.066, 1 }, { 0.10, 0.11, 0.14, 1 })
+
+    self.routePanel = makePanel(frame, "Quest route", 356, 514)
+    self.routePanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -1, -61)
     self.routePanel:EnableMouseWheel(true)
     self.routePanel:SetScript("OnMouseWheel", function(_, delta)
         local count = Addon.profile and table.getn(Addon.profile.route) or 0
@@ -771,8 +798,8 @@ function UI:Create()
         UI:Refresh()
     end)
 
-    self.catalogPanel = makePanel(frame, "Learned Callboard quests", 426, 430)
-    self.catalogPanel:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -16, -52)
+    self.catalogPanel = makePanel(frame, "Learned Callboard quests", 430, 514)
+    self.catalogPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", 153, -61)
     self.catalogPanel:EnableMouseWheel(true)
     self.catalogPanel:SetScript("OnMouseWheel", function(_, delta)
         local count = table.getn(UI.catalog or {})
@@ -780,31 +807,14 @@ function UI:Create()
         UI:Refresh()
     end)
 
-    self.search = makeInput(self.catalogPanel, "RavioliCallboardSearchBox")
-    self.search:SetHeight(24)
-    self.search:SetPoint("TOPLEFT", self.catalogPanel, "TOPLEFT", 14, -31)
-    self.search:SetPoint("TOPRIGHT", self.catalogPanel, "TOPRIGHT", -14, -31)
-    self.search:SetScript("OnEscapePressed", function(self)
-        self:ClearFocus()
-    end)
+    self.searchHolder, self.search = makeInput(self.catalogPanel, 398, 30, 80)
+    self.searchHolder:SetPoint("TOPLEFT", self.catalogPanel, "TOPLEFT", 16, -31)
     self.search:SetScript("OnTextChanged", function(self)
         UI:HideQuestDetails()
         UI.searchText = self:GetText() or ""
-        if UI.searchHint then
-            if UI.searchText == "" then
-                UI.searchHint:Show()
-            else
-                UI.searchHint:Hide()
-            end
-        end
         UI.catalogOffset = 0
         UI:Refresh()
     end)
-
-    self.searchHint = self.catalogPanel:CreateFontString(nil, "OVERLAY")
-    self.searchHint:SetPoint("LEFT", self.search, "LEFT", 9, 0)
-    self.searchHint:SetText("Search quests...")
-    setTextStyle(self.searchHint, 11, COLORS.muted, "LEFT")
 
     for i = 1, 13 do
         local row = createRouteRow(self.routePanel, i)
@@ -818,16 +828,18 @@ function UI:Create()
         self.catalogRows[i] = row
     end
 
-    self.routeEmpty = self.routePanel:CreateFontString(nil, "OVERLAY")
-    self.routeEmpty:SetPoint("CENTER", self.routePanel, "CENTER", 0, 0)
-    self.routeEmpty:SetWidth(350)
-    self.routeEmpty:SetText("No route steps yet. Add quests from the catalogue to begin.")
-    setTextStyle(self.routeEmpty, 12, COLORS.muted, "CENTER")
+    self.routeEmpty = self.routePanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    self.routeEmpty:SetPoint("CENTER", self.routePanel, "CENTER", 0, 8)
+    self.routeEmpty:SetWidth(300)
+    self.routeEmpty:SetText("No route steps yet.\n\nAdd quests from the catalogue to begin.")
+    self.routeEmpty:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.routeEmpty:SetJustifyH("CENTER")
 
-    self.catalogEmpty = self.catalogPanel:CreateFontString(nil, "OVERLAY")
-    self.catalogEmpty:SetPoint("CENTER", self.catalogPanel, "CENTER", 0, 0)
-    self.catalogEmpty:SetWidth(350)
-    setTextStyle(self.catalogEmpty, 12, COLORS.muted, "CENTER")
+    self.catalogEmpty = self.catalogPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    self.catalogEmpty:SetPoint("CENTER", self.catalogPanel, "CENTER", 0, 8)
+    self.catalogEmpty:SetWidth(340)
+    self.catalogEmpty:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+    self.catalogEmpty:SetJustifyH("CENTER")
 
     self.detailPopup = CreateFrame("Frame", "RavioliCallboardQuestDetailPopup", frame)
     self.detailPopup:SetWidth(390)
@@ -835,26 +847,25 @@ function UI:Create()
     self.detailPopup:SetFrameStrata("TOOLTIP")
     self.detailPopup:SetClampedToScreen(true)
     setBackdrop(self.detailPopup, COLORS.background, COLORS.gold)
+    self.detailPopup.headerTexture = addHeaderBand(self.detailPopup, 30)
     self.detailPopup:EnableMouse(true)
 
-    self.detailPopup.title = self.detailPopup:CreateFontString(nil, "OVERLAY")
+    self.detailPopup.title = self.detailPopup:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     self.detailPopup.title:SetPoint("TOPLEFT", self.detailPopup, "TOPLEFT", 12, -10)
     self.detailPopup.title:SetPoint("RIGHT", self.detailPopup, "RIGHT", -38, 0)
     self.detailPopup.title:SetJustifyH("LEFT")
-    setTextStyle(self.detailPopup.title, 13, COLORS.gold, "LEFT")
+    self.detailPopup.title:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    self.detailPopup.meta = self.detailPopup:CreateFontString(nil, "OVERLAY")
+    self.detailPopup.meta = self.detailPopup:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.detailPopup.meta:SetPoint("TOPLEFT", self.detailPopup.title, "BOTTOMLEFT", 0, -5)
     self.detailPopup.meta:SetPoint("RIGHT", self.detailPopup, "RIGHT", -12, 0)
     self.detailPopup.meta:SetJustifyH("LEFT")
-    setTextStyle(self.detailPopup.meta, 11, COLORS.muted, "LEFT")
+    self.detailPopup.meta:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.detailPopup.objective = self.detailPopup:CreateFontString(nil, "OVERLAY")
+    self.detailPopup.objective = self.detailPopup:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.detailPopup.objective:SetPoint("TOPLEFT", self.detailPopup.meta, "BOTTOMLEFT", 0, -8)
     self.detailPopup.objective:SetPoint("RIGHT", self.detailPopup, "RIGHT", -12, 0)
     self.detailPopup.objective:SetJustifyH("LEFT")
-    self.detailPopup.objective:SetJustifyV("TOP")
-    setTextStyle(self.detailPopup.objective, 11, COLORS.text, "LEFT")
     self.detailPopup.objective:SetJustifyV("TOP")
 
     self.detailPopup.close = makeButton(self.detailPopup, "X", 24, 21)
@@ -863,7 +874,8 @@ function UI:Create()
         UI:HideQuestDetails()
     end)
 
-    self.detailPopup.add = makeButton(self.detailPopup, "Add to Route", 94, 23, "primary")
+    self.detailPopup.add = makeButton(self.detailPopup, "Add to Route", 94, 23)
+    self.detailPopup.add.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.detailPopup.add:SetPoint("BOTTOMRIGHT", self.detailPopup, "BOTTOMRIGHT", -9, 8)
     self.detailPopup.add:SetScript("OnClick", function(self)
         if self.questKey then
@@ -880,12 +892,13 @@ function UI:Create()
     self.settingsFrame:SetFrameStrata("TOOLTIP")
     self.settingsFrame:SetClampedToScreen(true)
     setBackdrop(self.settingsFrame, COLORS.background, COLORS.gold)
+    self.settingsFrame.headerTexture = addHeaderBand(self.settingsFrame, 46)
     self.settingsFrame:EnableMouse(true)
 
-    self.settingsFrame.title = self.settingsFrame:CreateFontString(nil, "OVERLAY")
+    self.settingsFrame.title = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     self.settingsFrame.title:SetPoint("TOPLEFT", self.settingsFrame, "TOPLEFT", 16, -15)
     self.settingsFrame.title:SetText("RavioliCallboard Settings")
-    setTextStyle(self.settingsFrame.title, 16, COLORS.gold, "LEFT")
+    self.settingsFrame.title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
     self.settingsFrame.close = makeButton(self.settingsFrame, "X", 26, 22)
     self.settingsFrame.close:SetPoint("TOPRIGHT", self.settingsFrame, "TOPRIGHT", -9, -9)
@@ -913,48 +926,39 @@ function UI:Create()
     self.settingsGroupProgress.label:SetWidth(410)
     self.settingsGroupProgress.label:SetJustifyH("LEFT")
 
-    self.settingsMaxLabel = self.settingsFrame:CreateFontString(nil, "OVERLAY")
+    self.settingsMaxLabel = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.settingsMaxLabel:SetPoint("TOPLEFT", self.settingsGroupProgress, "BOTTOMLEFT", 2, -24)
     self.settingsMaxLabel:SetWidth(320)
     self.settingsMaxLabel:SetJustifyH("LEFT")
     self.settingsMaxLabel:SetText("Maximum rerolls per route step")
-    setTextStyle(self.settingsMaxLabel, 12, COLORS.text, "LEFT")
+    self.settingsMaxLabel:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    self.settingsMaxRerolls = makeInput(self.settingsFrame)
-    self.settingsMaxRerolls:SetWidth(70)
-    self.settingsMaxRerolls:SetHeight(24)
-    self.settingsMaxRerolls:SetAutoFocus(false)
+    self.settingsMaxHolder, self.settingsMaxRerolls = makeInput(self.settingsFrame, 70, 24, 3)
     self.settingsMaxRerolls:SetNumeric(true)
-    self.settingsMaxRerolls:SetPoint("LEFT", self.settingsMaxLabel, "RIGHT", 14, 0)
+    self.settingsMaxHolder:SetPoint("LEFT", self.settingsMaxLabel, "RIGHT", 14, 0)
 
-    self.settingsDelayLabel = self.settingsFrame:CreateFontString(nil, "OVERLAY")
+    self.settingsDelayLabel = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.settingsDelayLabel:SetPoint("TOPLEFT", self.settingsMaxLabel, "BOTTOMLEFT", 0, -26)
     self.settingsDelayLabel:SetWidth(320)
     self.settingsDelayLabel:SetJustifyH("LEFT")
     self.settingsDelayLabel:SetText("Reroll response delay (seconds)")
-    setTextStyle(self.settingsDelayLabel, 12, COLORS.text, "LEFT")
+    self.settingsDelayLabel:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    self.settingsRerollDelay = makeInput(self.settingsFrame)
-    self.settingsRerollDelay:SetWidth(70)
-    self.settingsRerollDelay:SetHeight(24)
-    self.settingsRerollDelay:SetAutoFocus(false)
-    self.settingsRerollDelay:SetPoint("LEFT", self.settingsDelayLabel, "RIGHT", 14, 0)
+    self.settingsDelayHolder, self.settingsRerollDelay = makeInput(self.settingsFrame, 70, 24, 5)
+    self.settingsDelayHolder:SetPoint("LEFT", self.settingsDelayLabel, "RIGHT", 14, 0)
 
-    self.settingsMiniCountLabel = self.settingsFrame:CreateFontString(nil, "OVERLAY")
+    self.settingsMiniCountLabel = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.settingsMiniCountLabel:SetPoint("TOPLEFT", self.settingsDelayLabel, "BOTTOMLEFT", 0, -26)
     self.settingsMiniCountLabel:SetWidth(320)
     self.settingsMiniCountLabel:SetJustifyH("LEFT")
     self.settingsMiniCountLabel:SetText("Quests shown in mini window (1-20)")
-    setTextStyle(self.settingsMiniCountLabel, 12, COLORS.text, "LEFT")
+    self.settingsMiniCountLabel:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
-    self.settingsMiniQuestCount = makeInput(self.settingsFrame)
-    self.settingsMiniQuestCount:SetWidth(70)
-    self.settingsMiniQuestCount:SetHeight(24)
-    self.settingsMiniQuestCount:SetAutoFocus(false)
+    self.settingsMiniHolder, self.settingsMiniQuestCount = makeInput(self.settingsFrame, 70, 24, 2)
     self.settingsMiniQuestCount:SetNumeric(true)
-    self.settingsMiniQuestCount:SetPoint("LEFT", self.settingsMiniCountLabel, "RIGHT", 14, 0)
+    self.settingsMiniHolder:SetPoint("LEFT", self.settingsMiniCountLabel, "RIGHT", 14, 0)
 
-    self.settingsFrame.note = self.settingsFrame:CreateFontString(nil, "OVERLAY")
+    self.settingsFrame.note = self.settingsFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.settingsFrame.note:SetPoint("TOPLEFT", self.settingsMiniCountLabel, "BOTTOMLEFT", 0, -27)
     self.settingsFrame.note:SetWidth(440)
     self.settingsFrame.note:SetHeight(72)
@@ -964,10 +968,10 @@ function UI:Create()
         self.settingsFrame.note:SetWordWrap(true)
     end
     self.settingsFrame.note:SetText("Group progress requires RavioliCallboard on each player. Without it, they show as No addon data. Looping is saved per route and requires at least four different quests because the Callboard locks a quest for the next three completions.")
-    setTextStyle(self.settingsFrame.note, 11, COLORS.muted, "LEFT")
-    self.settingsFrame.note:SetJustifyV("TOP")
+    self.settingsFrame.note:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.settingsFrame.save = makeButton(self.settingsFrame, "Save Settings", 112, 27, "primary")
+    self.settingsFrame.save = makeButton(self.settingsFrame, "Save Settings", 112, 27)
+    self.settingsFrame.save.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.settingsFrame.save:SetPoint("BOTTOMRIGHT", self.settingsFrame, "BOTTOMRIGHT", -14, 12)
     self.settingsFrame.save:SetScript("OnClick", function()
         Addon:ApplySettings(
@@ -988,6 +992,7 @@ function UI:Create()
     self.routeManager:SetPoint("CENTER", frame, "CENTER", 0, 0)
     self.routeManager:SetFrameStrata("TOOLTIP")
     setBackdrop(self.routeManager, COLORS.background, COLORS.gold)
+    self.routeManager.headerTexture = addHeaderBand(self.routeManager, 46)
     self.routeManager:EnableMouse(true)
     self.routeManager:EnableMouseWheel(true)
     self.routeManager:SetScript("OnMouseWheel", function(_, delta)
@@ -996,10 +1001,10 @@ function UI:Create()
         UI:RefreshRouteManager()
     end)
 
-    self.routeManager.title = self.routeManager:CreateFontString(nil, "OVERLAY")
+    self.routeManager.title = self.routeManager:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     self.routeManager.title:SetPoint("TOPLEFT", self.routeManager, "TOPLEFT", 16, -15)
     self.routeManager.title:SetText("Saved Routes")
-    setTextStyle(self.routeManager.title, 16, COLORS.gold, "LEFT")
+    self.routeManager.title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
     self.routeManager.close = makeButton(self.routeManager, "X", 26, 22)
     self.routeManager.close:SetPoint("TOPRIGHT", self.routeManager, "TOPRIGHT", -9, -9)
@@ -1007,15 +1012,13 @@ function UI:Create()
         UI.routeManager:Hide()
     end)
 
-    self.routeManager.nameLabel = self.routeManager:CreateFontString(nil, "OVERLAY")
+    self.routeManager.nameLabel = self.routeManager:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.routeManager.nameLabel:SetPoint("TOPLEFT", self.routeManager, "TOPLEFT", 16, -50)
     self.routeManager.nameLabel:SetText("Route name")
-    setTextStyle(self.routeManager.nameLabel, 11, COLORS.muted, "LEFT")
+    self.routeManager.nameLabel:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.routeManagerName = makeInput(self.routeManager)
-    self.routeManagerName:SetHeight(24)
-    self.routeManagerName:SetPoint("TOPLEFT", self.routeManager, "TOPLEFT", 16, -66)
-    self.routeManagerName:SetPoint("TOPRIGHT", self.routeManager, "TOPRIGHT", -132, -66)
+    self.routeManagerNameHolder, self.routeManagerName = makeInput(self.routeManager, 312, 24, 60)
+    self.routeManagerNameHolder:SetPoint("TOPLEFT", self.routeManager, "TOPLEFT", 16, -66)
     self.routeManagerName:SetScript("OnTextChanged", function()
         UI:UpdateRouteSaveButton()
     end)
@@ -1027,7 +1030,8 @@ function UI:Create()
         self:ClearFocus()
     end)
 
-    self.routeManagerSave = makeButton(self.routeManager, "Save Current", 106, 25, "primary")
+    self.routeManagerSave = makeButton(self.routeManager, "Save Current", 106, 25)
+    self.routeManagerSave.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.routeManagerSave:SetPoint("TOPRIGHT", self.routeManager, "TOPRIGHT", -14, -65)
     self.routeManagerSave:SetScript("OnClick", function()
         Addon:SaveCurrentRoute(UI.routeManagerName:GetText())
@@ -1038,7 +1042,7 @@ function UI:Create()
         row:SetHeight(29)
         row:SetPoint("TOPLEFT", self.routeManager, "TOPLEFT", 14, -105 - ((i - 1) * 31))
         row:SetPoint("RIGHT", self.routeManager, "RIGHT", -14, 0)
-        setBackdrop(row, COLORS.panel, COLORS.border)
+        setBackdrop(row, COLORS.normal, COLORS.border)
 
         row.load = makeButton(row, "", 258, 23)
         row.load:SetPoint("LEFT", row, "LEFT", 4, 0)
@@ -1060,7 +1064,8 @@ function UI:Create()
             end
         end)
 
-        row.delete = makeButton(row, "Delete", 72, 23, "danger")
+        row.delete = makeButton(row, "Delete", 72, 23)
+        row.delete.label:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
         row.delete:SetPoint("RIGHT", row, "RIGHT", -4, 0)
         row.delete:SetScript("OnClick", function(self)
             if not self.routeName then
@@ -1079,22 +1084,13 @@ function UI:Create()
         self.savedRouteRows[i] = row
     end
 
-
-    self.routeManagerEmpty = self.routeManager:CreateFontString(nil, "OVERLAY")
-    self.routeManagerEmpty:SetPoint("CENTER", self.routeManager, "CENTER", 0, -12)
-    self.routeManagerEmpty:SetWidth(380)
-    self.routeManagerEmpty:SetText("No saved routes yet. Name the current route and save it above.")
-    setTextStyle(self.routeManagerEmpty, 12, COLORS.muted, "CENTER")
-
-    self.routeManager.shareLabel = self.routeManager:CreateFontString(nil, "OVERLAY")
+    self.routeManager.shareLabel = self.routeManager:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.routeManager.shareLabel:SetPoint("BOTTOMLEFT", self.routeManager, "BOTTOMLEFT", 16, 51)
     self.routeManager.shareLabel:SetText("Recipient for Share buttons (addon required)")
-    setTextStyle(self.routeManager.shareLabel, 11, COLORS.muted, "LEFT")
+    self.routeManager.shareLabel:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.routeManagerShareTarget = makeInput(self.routeManager)
-    self.routeManagerShareTarget:SetHeight(24)
-    self.routeManagerShareTarget:SetPoint("BOTTOMLEFT", self.routeManager, "BOTTOMLEFT", 16, 17)
-    self.routeManagerShareTarget:SetPoint("BOTTOMRIGHT", self.routeManager, "BOTTOMRIGHT", -130, 17)
+    self.routeManagerShareHolder, self.routeManagerShareTarget = makeInput(self.routeManager, 312, 24, 48)
+    self.routeManagerShareHolder:SetPoint("BOTTOMLEFT", self.routeManager, "BOTTOMLEFT", 16, 17)
     if self.routeManagerShareTarget.SetMaxLetters then
         self.routeManagerShareTarget:SetMaxLetters(48)
     end
@@ -1106,27 +1102,27 @@ function UI:Create()
         self:ClearFocus()
     end)
 
-    self.routeManagerShare = makeButton(self.routeManager, "Share Current", 108, 25, "primary")
+    self.routeManagerShare = makeButton(self.routeManager, "Share Current", 108, 25)
+    self.routeManagerShare.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.routeManagerShare:SetPoint("BOTTOMRIGHT", self.routeManager, "BOTTOMRIGHT", -14, 17)
     self.routeManagerShare:SetScript("OnClick", function()
         Addon:ShareCurrentRoute(UI.routeManagerShareTarget:GetText(), UI.routeManagerName:GetText())
         UI.routeManagerShareTarget:ClearFocus()
     end)
 
-    self.routeManagerPage = self.routeManager:CreateFontString(nil, "OVERLAY")
+    self.routeManagerPage = self.routeManager:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.routeManagerPage:SetPoint("BOTTOMLEFT", self.routeManager, "BOTTOMLEFT", 16, 85)
-    setTextStyle(self.routeManagerPage, 11, COLORS.muted, "LEFT")
+    self.routeManagerPage:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
     self.routeManager:Hide()
     self:InstallChatNameHook()
 
-    self.routePage = self.routePanel:CreateFontString(nil, "OVERLAY")
+    self.routePage = self.routePanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.routePage:SetPoint("BOTTOMLEFT", self.routePanel, "BOTTOMLEFT", 12, 10)
+    self.routePage:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    setTextStyle(self.routePage, 11, COLORS.muted, "LEFT")
-
-    self.catalogPage = self.catalogPanel:CreateFontString(nil, "OVERLAY")
+    self.catalogPage = self.catalogPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.catalogPage:SetPoint("BOTTOMLEFT", self.catalogPanel, "BOTTOMLEFT", 12, 10)
-    setTextStyle(self.catalogPage, 11, COLORS.muted, "LEFT")
+    self.catalogPage:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     self.up = makeButton(frame, "Up", 62, 25)
     self.up:SetPoint("TOPLEFT", self.routePanel, "BOTTOMLEFT", 0, -8)
@@ -1146,7 +1142,8 @@ function UI:Create()
         end
     end)
 
-    self.remove = makeButton(frame, "Remove", 72, 25, "danger")
+    self.remove = makeButton(frame, "Remove", 72, 25)
+    self.remove.label:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     self.remove:SetPoint("LEFT", self.down, "RIGHT", 5, 0)
     self.remove:SetScript("OnClick", function()
         if UI.selectedRouteIndex then
@@ -1175,24 +1172,38 @@ function UI:Create()
         UI:SetAllCatalogGroupsCollapsed(false)
     end)
 
-    self.import = makeButton(frame, "Import AutoCallboard", 148, 25, "primary")
+    self.import = makeButton(frame, "Import AutoCallboard", 148, 25)
+    self.import.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.import:SetPoint("TOPRIGHT", self.catalogPanel, "BOTTOMRIGHT", 0, -8)
     self.import:SetScript("OnClick", function()
         Addon:ImportAutoCallboard()
     end)
 
-    self.status = frame:CreateFontString(nil, "OVERLAY")
-    self.status:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 18, 53)
-    self.status:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -18, 53)
-    self.status:SetJustifyH("LEFT")
-    self.status:SetText("Ready.")
-    setTextStyle(self.status, 12, COLORS.muted, "LEFT")
+    self.navRunLabel = self.navPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self.navRunLabel:SetPoint("TOPLEFT", self.navPanel, "TOPLEFT", 14, -18)
+    self.navRunLabel:SetText("RUN ROUTE")
+    self.navRunLabel:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.start = CreateFrame("Button", "RavioliCallboardStartRouteButton", frame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    self.start:SetWidth(104)
-    self.start:SetHeight(28)
-    styleButton(self.start, "Start Route", "primary")
-    self.start:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 18, 15)
+    self.navStatusLabel = self.navPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    self.navStatusLabel:SetPoint("TOPLEFT", self.navPanel, "TOPLEFT", 14, -270)
+    self.navStatusLabel:SetText("STATUS")
+    self.navStatusLabel:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    self.status = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    self.status:SetPoint("TOPLEFT", self.navPanel, "TOPLEFT", 14, -292)
+    self.status:SetWidth(124)
+    self.status:SetHeight(210)
+    self.status:SetJustifyH("LEFT")
+    self.status:SetJustifyV("TOP")
+    self.status:SetText("Ready.")
+    self.status:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
+
+    self.start = CreateFrame("Button", "RavioliCallboardStartRouteButton", self.navPanel, "SecureActionButtonTemplate")
+    self.start:SetWidth(124)
+    self.start:SetHeight(30)
+    styleSecureButton(self.start, "Start Route")
+    self.start:SetPoint("TOPLEFT", self.navPanel, "TOPLEFT", 14, -40)
+    self.start.label:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
     self.start:SetAttribute("type", "macro")
     self.start:SetAttribute("macrotext", "/cast Summon Callboard")
     self.start:SetScript("PostClick", function()
@@ -1201,11 +1212,11 @@ function UI:Create()
     self.startActionCasts = true
     self:UpdateStartAction()
 
-    self.summon = CreateFrame("Button", "RavioliCallboardSummonButton", frame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
-    self.summon:SetWidth(112)
-    self.summon:SetHeight(28)
-    self.summon:SetPoint("LEFT", self.start, "RIGHT", 8, 0)
-    styleButton(self.summon, "Summon Board")
+    self.summon = CreateFrame("Button", "RavioliCallboardSummonButton", self.navPanel, "SecureActionButtonTemplate")
+    self.summon:SetWidth(124)
+    self.summon:SetHeight(30)
+    styleSecureButton(self.summon, "Summon Board")
+    self.summon:SetPoint("TOPLEFT", self.start, "BOTTOMLEFT", 0, -8)
     self.summon:SetAttribute("type", "macro")
     self.summon:SetAttribute("macrotext", "/cast Summon Callboard")
     self.summon:SetScript("PostClick", function()
@@ -1213,20 +1224,22 @@ function UI:Create()
     end)
     self:UpdateSummonCooldown()
 
-    self.advance = makeButton(frame, "Complete Step", 112, 28, "success")
-    self.advance:SetPoint("LEFT", self.summon, "RIGHT", 8, 0)
+    self.advance = makeButton(self.navPanel, "Complete Step", 124, 30)
+    self.advance:SetPoint("TOPLEFT", self.summon, "BOTTOMLEFT", 0, -8)
+    self.advance.label:SetTextColor(COLORS.green[1], COLORS.green[2], COLORS.green[3])
     self.advance:SetScript("OnClick", function()
         Addon:AdvanceRoute("Marked complete by user")
     end)
 
-    self.reset = makeButton(frame, "Reset to Step 1", 112, 28)
-    self.reset:SetPoint("LEFT", self.advance, "RIGHT", 8, 0)
+    self.reset = makeButton(self.navPanel, "Reset to Step 1", 124, 30)
+    self.reset:SetPoint("TOPLEFT", self.advance, "BOTTOMLEFT", 0, -8)
     self.reset:SetScript("OnClick", function()
         Addon:ResetRoute()
     end)
 
-    self.clear = makeButton(frame, "Clear Route", 96, 28, "danger")
-    self.clear:SetPoint("LEFT", self.reset, "RIGHT", 8, 0)
+    self.clear = makeButton(self.navPanel, "Clear Route", 124, 30)
+    self.clear:SetPoint("TOPLEFT", self.reset, "BOTTOMLEFT", 0, -8)
+    self.clear.label:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
     self.clear:SetScript("OnClick", function()
         Addon:ClearRoute()
         UI.selectedRouteIndex = nil
@@ -1256,6 +1269,7 @@ function UI:Create()
     self.miniFrame:EnableMouse(true)
     self.miniFrame:RegisterForDrag("LeftButton")
     setBackdrop(self.miniFrame, COLORS.background)
+    self.miniFrame.headerTexture = addHeaderBand(self.miniFrame, 32)
     self.miniFrame:SetScript("OnDragStart", function(self)
         self:StartMoving()
     end)
@@ -1264,46 +1278,44 @@ function UI:Create()
         UI:SaveMiniLayout()
     end)
 
-    self.miniFrame.title = self.miniFrame:CreateFontString(nil, "OVERLAY")
+    self.miniFrame.title = self.miniFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     self.miniFrame.title:SetPoint("TOPLEFT", self.miniFrame, "TOPLEFT", 14, -12)
     self.miniFrame.title:SetPoint("RIGHT", self.miniFrame, "RIGHT", -14, 0)
     self.miniFrame.title:SetJustifyH("LEFT")
-    setTextStyle(self.miniFrame.title, 13, COLORS.gold, "LEFT")
+    self.miniFrame.title:SetTextColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3])
 
-    self.miniCurrent = self.miniFrame:CreateFontString(nil, "OVERLAY")
+    self.miniCurrent = self.miniFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.miniCurrent:SetPoint("TOPLEFT", self.miniFrame, "TOPLEFT", 14, -40)
     self.miniCurrent:SetPoint("BOTTOMRIGHT", self.miniFrame, "BOTTOMRIGHT", -14, 88)
     self.miniCurrent:SetJustifyH("LEFT")
     self.miniCurrent:SetJustifyV("TOP")
-    setTextStyle(self.miniCurrent, 12, COLORS.text, "LEFT")
-    self.miniCurrent:SetJustifyV("TOP")
 
-    self.miniNext = self.miniFrame:CreateFontString(nil, "OVERLAY")
-    setTextStyle(self.miniNext, 11, COLORS.muted, "LEFT")
+    self.miniNext = self.miniFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.miniNext:Hide()
 
-    self.miniStatus = self.miniFrame:CreateFontString(nil, "OVERLAY")
+    self.miniStatus = self.miniFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.miniStatus:SetPoint("BOTTOMLEFT", self.miniFrame, "BOTTOMLEFT", 14, 52)
     self.miniStatus:SetPoint("BOTTOMRIGHT", self.miniFrame, "BOTTOMRIGHT", -14, 52)
     self.miniStatus:SetJustifyH("LEFT")
-    setTextStyle(self.miniStatus, 11, COLORS.muted, "LEFT")
+    self.miniStatus:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
-    self.miniSummon = CreateFrame("Button", "RavioliCallboardMiniSummonButton", self.miniFrame, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+    self.miniSummon = CreateFrame("Button", "RavioliCallboardMiniSummonButton", self.miniFrame, "SecureActionButtonTemplate")
     self.miniSummon:SetWidth(122)
     self.miniSummon:SetHeight(28)
     self.miniSummon:SetPoint("BOTTOMLEFT", self.miniFrame, "BOTTOMLEFT", 14, 14)
-    styleButton(self.miniSummon, "Summon Board")
+    styleSecureButton(self.miniSummon, "Summon Board")
     self.miniSummon:SetAttribute("type", "macro")
     self.miniSummon:SetAttribute("macrotext", "/cast Summon Callboard")
     self.miniSummon:SetScript("PostClick", function()
         Addon:BeginBoardOpenFlow(false)
     end)
 
-    self.miniStop = makeButton(self.miniFrame, "STOP", 90, 28, "danger")
+    self.miniStop = makeButton(self.miniFrame, "STOP", 90, 28)
     self.miniStop:SetPoint("LEFT", self.miniSummon, "RIGHT", 8, 0)
     self.miniStop:SetScript("OnClick", function()
         Addon:StopRouteAndReturn()
     end)
+    self.miniStop.label:SetTextColor(COLORS.red[1], COLORS.red[2], COLORS.red[3])
 
     self.miniGroup = makeButton(self.miniFrame, "Group", 88, 28)
     self.miniGroup:SetPoint("LEFT", self.miniStop, "RIGHT", 8, 0)
@@ -1319,11 +1331,12 @@ function UI:Create()
     self.groupProgressFrame:SetClampedToScreen(true)
     self.groupProgressFrame:EnableMouse(true)
     setBackdrop(self.groupProgressFrame, COLORS.background, COLORS.gold)
+    self.groupProgressFrame.headerTexture = addHeaderBand(self.groupProgressFrame, 48)
 
-    self.groupProgressFrame.title = self.groupProgressFrame:CreateFontString(nil, "OVERLAY")
+    self.groupProgressFrame.title = self.groupProgressFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     self.groupProgressFrame.title:SetPoint("TOPLEFT", self.groupProgressFrame, "TOPLEFT", 14, -13)
     self.groupProgressFrame.title:SetText("Group Progress")
-    setTextStyle(self.groupProgressFrame.title, 16, COLORS.gold, "LEFT")
+    self.groupProgressFrame.title:SetTextColor(COLORS.text[1], COLORS.text[2], COLORS.text[3])
 
     self.groupProgressFrame.close = makeButton(self.groupProgressFrame, "X", 26, 22)
     self.groupProgressFrame.close:SetPoint("TOPRIGHT", self.groupProgressFrame, "TOPRIGHT", -9, -9)
@@ -1331,11 +1344,11 @@ function UI:Create()
         UI.groupProgressFrame:Hide()
     end)
 
-    self.groupProgressFrame.subtitle = self.groupProgressFrame:CreateFontString(nil, "OVERLAY")
+    self.groupProgressFrame.subtitle = self.groupProgressFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.groupProgressFrame.subtitle:SetPoint("TOPLEFT", self.groupProgressFrame, "TOPLEFT", 14, -42)
     self.groupProgressFrame.subtitle:SetPoint("RIGHT", self.groupProgressFrame, "RIGHT", -14, 0)
     self.groupProgressFrame.subtitle:SetJustifyH("LEFT")
-    setTextStyle(self.groupProgressFrame.subtitle, 11, COLORS.muted, "LEFT")
+    self.groupProgressFrame.subtitle:SetTextColor(COLORS.muted[1], COLORS.muted[2], COLORS.muted[3])
 
     self.groupProgressScroll = CreateFrame("ScrollFrame", "RavioliCallboardGroupProgressScroll", self.groupProgressFrame, "UIPanelScrollFrameTemplate")
     self.groupProgressScroll:SetPoint("TOPLEFT", self.groupProgressFrame, "TOPLEFT", 12, -68)
@@ -1346,12 +1359,10 @@ function UI:Create()
     self.groupProgressChild:SetHeight(250)
     self.groupProgressScroll:SetScrollChild(self.groupProgressChild)
 
-    self.groupProgressText = self.groupProgressChild:CreateFontString(nil, "OVERLAY")
+    self.groupProgressText = self.groupProgressChild:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     self.groupProgressText:SetPoint("TOPLEFT", self.groupProgressChild, "TOPLEFT", 3, -3)
     self.groupProgressText:SetPoint("RIGHT", self.groupProgressChild, "RIGHT", -3, 0)
     self.groupProgressText:SetJustifyH("LEFT")
-    self.groupProgressText:SetJustifyV("TOP")
-    setTextStyle(self.groupProgressText, 12, COLORS.text, "LEFT")
     self.groupProgressText:SetJustifyV("TOP")
     self.groupProgressFrame:Hide()
 
@@ -1382,8 +1393,8 @@ end
 function UI:SetStatus(message)
     if self.status then
         self.status:SetText(message or "")
-        local color = statusColor(message)
-        self.status:SetTextColor(unpack(color))
+        local color = getStatusColor(message)
+        self.status:SetTextColor(color[1], color[2], color[3])
     end
 end
 
@@ -1395,7 +1406,7 @@ function UI:Refresh()
     local route = Addon.profile.route
     local routeCount = table.getn(route)
     local activeRouteName = Addon.profile.activeRouteName
-    local loopSuffix = Addon.profile.autoLoop and ("  " .. COLOR_CODES.gold .. "[Loop]|r") or ""
+    local loopSuffix = Addon.profile.autoLoop and "  |cffffcc00[Loop]|r" or ""
     self.routePanel.title:SetText(activeRouteName and ("Quest route — " .. activeRouteName .. loopSuffix) or ("Quest route" .. loopSuffix))
     self.routeOffset = clampOffset(self.routeOffset, routeCount, 13)
 
@@ -1407,18 +1418,17 @@ function UI:Refresh()
             local quest = Addon.db.knownQuests[key]
             local title = quest and Core.QuestTitle(quest) or key
             row.routeIndex = routeIndex
+            row.number:SetText(tostring(routeIndex) .. ".")
+            row.label:SetText(title)
             if routeIndex == Addon.profile.currentStep then
-                row.number:SetText("> " .. tostring(routeIndex) .. ".")
-                row.label:SetText("[Current] " .. title)
-                setRowState(row, COLORS.panelLight, COLORS.green)
+                row:SetBackdropColor(unpack(COLORS.current))
+                row:SetBackdropBorderColor(COLORS.green[1], COLORS.green[2], COLORS.green[3], 1)
             elseif routeIndex == self.selectedRouteIndex then
-                row.number:SetText(tostring(routeIndex) .. ".")
-                row.label:SetText("[Selected] " .. title)
-                setRowState(row, COLORS.panelLight, COLORS.gold)
+                row:SetBackdropColor(unpack(COLORS.selected))
+                row:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 1)
             else
-                row.number:SetText(tostring(routeIndex) .. ".")
-                row.label:SetText(title)
-                setRowState(row, COLORS.panel, COLORS.border)
+                row:SetBackdropColor(unpack(COLORS.normal))
+                row:SetBackdropBorderColor(unpack(COLORS.border))
             end
             row:Show()
         else
@@ -1427,12 +1437,10 @@ function UI:Refresh()
         end
     end
     self.routePage:SetText(tostring(routeCount) .. " route step(s)")
-    if self.routeEmpty then
-        if routeCount == 0 then
-            self.routeEmpty:Show()
-        else
-            self.routeEmpty:Hide()
-        end
+    if routeCount == 0 then
+        self.routeEmpty:Show()
+    else
+        self.routeEmpty:Hide()
     end
 
     local zoneCount
@@ -1443,15 +1451,13 @@ function UI:Refresh()
         Addon.profile.catalogCollapsed
     )
     local catalogCount = table.getn(self.catalog)
-    if self.catalogEmpty then
-        if catalogCount == 0 then
-            self.catalogEmpty:SetText((self.searchText or "") ~= ""
-                and "No learned quests match this search."
-                or "No quests learned yet. Open the Callboard or import AutoCallboard data.")
-            self.catalogEmpty:Show()
-        else
-            self.catalogEmpty:Hide()
-        end
+    if catalogCount == 0 then
+        self.catalogEmpty:SetText((self.searchText or "") ~= ""
+            and "No learned quests match this search."
+            or "No quests learned yet.\n\nOpen the Callboard or import AutoCallboard data.")
+        self.catalogEmpty:Show()
+    else
+        self.catalogEmpty:Hide()
     end
     self.catalogOffset = clampOffset(self.catalogOffset, catalogCount, 12)
     for visibleIndex = 1, 12 do
@@ -1468,16 +1474,17 @@ function UI:Refresh()
                 row.label:ClearAllPoints()
                 row.label:SetPoint("LEFT", row, "LEFT", 10, 0)
                 row.label:SetPoint("RIGHT", row, "RIGHT", -8, 0)
-                row.label:SetText((entry.collapsed and (COLOR_CODES.gold .. "[+]|r ") or (COLOR_CODES.gold .. "[-]|r "))
-                    .. entry.label .. "  " .. COLOR_CODES.muted .. "(" .. tostring(entry.count) .. ")|r")
-                setRowState(row, COLORS.panelLight, COLORS.gold)
+                row.label:SetText((entry.collapsed and "|cffffcc00[+]|r " or "|cffffcc00[-]|r ")
+                    .. entry.label .. "  |cff888888(" .. tostring(entry.count) .. ")|r")
+                row:SetBackdropColor(unpack(COLORS.panelLight))
+                row:SetBackdropBorderColor(COLORS.gold[1], COLORS.gold[2], COLORS.gold[3], 0.65)
             else
                 local quest = entry.quest
                 local inRoute = Core.RouteContains(route, quest.key)
                 row.groupId = nil
                 row.add.questKey = quest.key
                 row.info.questKey = quest.key
-                row.add:SetText(inRoute and "=" or "+")
+                setButtonText(row.add, inRoute and "=" or "+")
                 row.add:Show()
                 row.info:Show()
                 if inRoute then
@@ -1488,9 +1495,10 @@ function UI:Refresh()
                 row.label:ClearAllPoints()
                 row.label:SetPoint("LEFT", row.add, "RIGHT", 7, 0)
                 row.label:SetPoint("RIGHT", row.info, "LEFT", -5, 0)
-                local idSuffix = quest.questId and ("  " .. COLOR_CODES.muted .. "#" .. tostring(quest.questId) .. "|r") or ""
+                local idSuffix = quest.questId and "  |cff777777#" .. tostring(quest.questId) .. "|r" or ""
                 row.label:SetText(Core.QuestTitle(quest) .. idSuffix)
-                setRowState(row, COLORS.panel, COLORS.border)
+                row:SetBackdropColor(unpack(COLORS.normal))
+                row:SetBackdropBorderColor(unpack(COLORS.border))
             end
             row:Show()
         else
@@ -1502,12 +1510,18 @@ function UI:Refresh()
     end
     self.catalogPage:SetText(tostring(learnedCount or 0) .. " learned quest(s) in " .. tostring(zoneCount or 0) .. " zone group(s)")
 
-    self.start:SetText("Start Route")
+    setButtonText(self.start, "Start Route")
     self:SetStatus(Addon.statusMessage or "Ready.")
     self:RefreshMini()
 end
 
 function UI:Toggle()
+    if Addon.uiInitError then
+        if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff5555RavioliCallboard UI error:|r " .. tostring(Addon.uiInitError))
+        end
+        return
+    end
     self:Create()
     if self.miniFrame and self.miniFrame:IsShown() then
         self:ShowMain()

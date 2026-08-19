@@ -1,4 +1,4 @@
-RavioliCallboard 1.0.0
+RavioliCallboard 1.0.1
 Author: Zendan
 
 Build an ordered Project Ebonhold Callboard quest route. RavioliCallboard rolls
@@ -6,11 +6,11 @@ for the current step, selects only that quest, waits for completion, and then
 moves to the next step.
 
 Interface
-- The interface uses Ebonhold-compatible Blizzard button, input, checkbox, font
-  and backdrop primitives throughout.
-- Current and selected route rows include text labels as well as semantic borders.
-  Success, warning and error status messages use consistent green, gold and red.
-- Route, catalogue and saved-route panels provide clear empty-state messages.
+- The interface follows Ravioli Family Activity Finder's layout and styling:
+  a 60-pixel header, left action rail, central searchable catalogue, right route
+  panel, flat charcoal surfaces, slate borders and gold interaction highlights.
+- Settings, saved routes, quest details, the mini runner and group progress use
+  the same panel, header, button, input and semantic colour treatments.
 
 Getting started
 1. Type /rcb to open the route builder.

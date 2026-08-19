@@ -1071,7 +1071,16 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         SlashCmdList.RAVIOLICALLBOARD = handleSlash
     elseif event == "PLAYER_LOGIN" then
         initializeProfile()
-        UI:Create()
+        local uiReady, uiError = pcall(UI.Create, UI)
+        if not uiReady then
+            Addon.uiInitError = tostring(uiError or "Unknown UI error")
+            if UI and UI.frame then
+                UI.frame:Hide()
+            end
+            Print("UI failed to initialize: " .. Addon.uiInitError)
+            return
+        end
+        Addon.uiInitError = nil
         Addon.initialized = true
         Addon:SetStatus("Ready. Build a route, press Start, then open the Callboard.")
         Print("Ready. Type /rcb to build your quest route.")

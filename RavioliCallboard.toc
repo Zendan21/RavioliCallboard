@@ -2,7 +2,7 @@
 ## Title: RavioliCallboard
 ## Notes: Build ordered Callboard quest routes and run them one quest at a time.
 ## Author: Zendan
-## Version: 1.0.0
+## Version: 1.0.1
 ## OptionalDeps: AutoCallboard
 ## SavedVariables: RavioliCallboardDB
 
