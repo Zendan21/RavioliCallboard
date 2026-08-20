@@ -1,4 +1,4 @@
-RavioliCallboard 1.0.1
+RavioliCallboard 1.0.4
 Author: Zendan
 
 Build an ordered Project Ebonhold Callboard quest route. RavioliCallboard rolls
@@ -50,11 +50,20 @@ Saved routes and settings
 - RavioliCallboard remembers the last three completed route quests per character,
   even after reloading or switching saved routes, and stops safely if the current
   step is still repeat-locked.
-- The Summon Board button displays its remaining cooldown in seconds.
+- The board button displays its remaining summon cooldown in seconds. Near a
+  permanent city Callboard it changes to Open Board and uses that board instead.
 
 Route runner
-- Start Route is a secure Summon Callboard click. It then looks for an in-range
-  Callboard, attempts to interact with it, opens the board, and starts safely.
+- Start Route first looks for an in-range Callboard or Objectives Board. It opens
+  permanent city boards and existing summoned boards without casting. Only when
+  no usable board is nearby and Summon Callboard is learned does it cast the
+  ability, interact with the new board, and start the route.
+- Casting Summon Callboard manually while a route is ready also opens the new
+  board and starts the route. Manual summons during an active route are detected
+  and used for the current step without requiring the addon button.
+- Start Route never attempts to recast Summon Callboard while the spell is on
+  cooldown. It searches for the existing manually summoned board instead, so a
+  cooldown cannot block starting the route or collecting the next route quest.
 - When running, the large route builder is replaced by a movable, resizable mini
   window showing the current and upcoming route quests, summon cooldown and a
   clear STOP button. The current quest is highlighted in yellow.

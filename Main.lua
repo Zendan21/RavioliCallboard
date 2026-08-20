@@ -25,6 +25,7 @@ Addon.nextActionAt = nil
 Addon.nextObjectiveRequestAt = nil
 Addon.lastBoardVisible = false
 Addon.pendingBoardOpen = nil
+Addon.lastSummonCooldownRemaining = nil
 Addon.initialized = false
 
 local function Print(message)
@@ -555,21 +556,8 @@ function Addon:StartRoute()
 end
 
 local function tryInteractWithCallboard()
-    local names = { "Callboard", "Objectives Board" }
-    for i = 1, table.getn(names) do
-        if TargetByName then
-            TargetByName(names[i], true)
-        end
-        if UnitExists and UnitExists("target") then
-            local targetName = UnitName and UnitName("target") or nil
-            if targetName == names[i] then
-                local inRange = not CheckInteractDistance or CheckInteractDistance("target", 3)
-                if inRange and InteractUnit then
-                    local ok = pcall(InteractUnit, "target")
-                    return ok
-                end
-            end
-        end
+    if PE.TryInteractWithCallboard then
+        return PE.TryInteractWithCallboard()
     end
     return false
 end
@@ -591,14 +579,27 @@ function Addon:BeginBoardOpenFlow(startRouteAfterOpen)
         return true
     end
 
+    local nearbyBoard = PE.IsCallboardNearby and PE.IsCallboardNearby(true) or false
+    local canSummon = PE.IsSummonSpellKnown and PE.IsSummonSpellKnown() or true
+    local summonCooldown = PE.GetSummonCooldownRemaining and PE.GetSummonCooldownRemaining() or 0
     self.pendingBoardOpen = {
         startRoute = startRouteAfterOpen == true,
         expiresAt = now() + 12,
         nextInteractAt = now(),
+        canSummon = canSummon,
+        summonOnCooldown = summonCooldown > 0,
     }
-    self:SetStatus(startRouteAfterOpen
-        and "Summoning and opening the Callboard..."
-        or "Waiting for the Callboard to appear...", true)
+    if nearbyBoard then
+        self:SetStatus("Opening the nearby Callboard...", true)
+    elseif summonCooldown > 0 then
+        self:SetStatus("Callboard is on cooldown. Looking for the existing board...", true)
+    elseif canSummon then
+        self:SetStatus(startRouteAfterOpen
+            and "Summoning and opening the Callboard..."
+            or "Waiting for the Callboard to appear...", true)
+    else
+        self:SetStatus("Summon Callboard is not learned. Move close to a city Callboard and try again.", true)
+    end
     tryInteractWithCallboard()
     return true
 end
@@ -855,9 +856,15 @@ local function processPendingBoardOpen()
 
     if now() > pending.expiresAt then
         Addon.pendingBoardOpen = nil
-        Addon:SetStatus(pending.startRoute
-            and "Could not open the Callboard automatically. Interact with it, then press Start Route again."
-            or "Could not find an interactable Callboard. Move closer and try again.", true)
+        if pending.summonOnCooldown then
+            Addon:SetStatus("The existing Callboard could not be reached. Move closer to it and press Start Route again; the cooldown will not be recast.", true)
+        elseif not pending.canSummon then
+            Addon:SetStatus("No nearby city Callboard was found, and Summon Callboard is not learned. Move closer to a city board and try again.", true)
+        else
+            Addon:SetStatus(pending.startRoute
+                and "Could not open the Callboard automatically. Interact with it, then press Start Route again."
+                or "Could not find an interactable Callboard. Move closer and try again.", true)
+        end
         return
     end
 
@@ -867,11 +874,58 @@ local function processPendingBoardOpen()
     end
 end
 
+local function summonSpellMatches(spellName, arg3, arg4, arg5)
+    local spellID = tonumber(arg5) or tonumber(arg4) or tonumber(arg3)
+    return spellID == PE.SUMMON_SPELL_ID or spellName == PE.SUMMON_SPELL_NAME
+end
+
+local function beginDetectedSummon()
+    if routeCount() == 0 then
+        return
+    end
+
+    if Addon.pendingBoardOpen then
+        Addon.pendingBoardOpen.expiresAt = now() + 12
+        Addon.pendingBoardOpen.nextInteractAt = now()
+        return
+    end
+
+    if Addon.running then
+        Addon:BeginBoardOpenFlow(false)
+        Addon:SetStatus("Manual Callboard summon detected. Opening it for the current route step...", true)
+        return
+    end
+
+    if Addon:BeginBoardOpenFlow(true) then
+        Addon:SetStatus("Manual Callboard summon detected. Opening it and starting the route...", true)
+    end
+end
+
+local function handleSummonSpellSucceeded(unit, spellName, arg3, arg4, arg5)
+    if unit ~= "player" or not summonSpellMatches(spellName, arg3, arg4, arg5) then
+        return
+    end
+    beginDetectedSummon()
+end
+
+local function processSummonCooldownTransition()
+    if not PE.GetSummonCooldownRemaining then
+        return
+    end
+    local remaining = PE.GetSummonCooldownRemaining()
+    local previous = Addon.lastSummonCooldownRemaining
+    Addon.lastSummonCooldownRemaining = remaining
+    if previous ~= nil and previous <= 0 and remaining > 1 then
+        beginDetectedSummon()
+    end
+end
+
 local function tick()
     if not Addon.initialized then
         return
     end
 
+    processSummonCooldownTransition()
     if UI and UI.UpdateSummonCooldown then
         UI:UpdateSummonCooldown()
     end
@@ -885,6 +939,7 @@ local function tick()
     processPendingBoardOpen()
 
     local boardVisible = PE.IsBoardVisible()
+    local boardAccessible = PE.HasBoardAccess and PE.HasBoardAccess() or boardVisible
     if boardVisible and not Addon.lastBoardVisible then
         PE.RequestObjectives()
         Addon.nextObjectiveRequestAt = now() + 1
@@ -896,7 +951,7 @@ local function tick()
         PE.CloseBoard()
     end
 
-    if boardVisible then
+    if boardAccessible then
         learnCurrentObjectives()
     end
 
@@ -933,10 +988,17 @@ local function tick()
         return
     end
 
-    if not boardVisible then
+    if not boardAccessible then
         Addon:SetStatus("Running step " .. tostring(Addon.profile.currentStep) .. ": " .. questLabel(key) .. ". Open or summon the Callboard.")
+        if not Addon.nextRunningBoardInteractAt or now() >= Addon.nextRunningBoardInteractAt then
+            Addon.nextRunningBoardInteractAt = now() + 0.4
+            if PE.IsCallboardNearby and PE.IsCallboardNearby() then
+                tryInteractWithCallboard()
+            end
+        end
         return
     end
+    Addon.nextRunningBoardInteractAt = nil
     processBoard()
 end
 
@@ -1028,7 +1090,7 @@ local function handleSlash(input)
     if input == "" or input == "show" or input == "toggle" then
         UI:Toggle()
     elseif input == "start" then
-        Addon:StartRoute()
+        Addon:BeginStartFlow()
     elseif input == "pause" or input == "stop" then
         Addon:PauseRoute("Paused by user.")
     elseif input == "next" or input == "advance" then
@@ -1061,7 +1123,7 @@ local function handleSlash(input)
     end
 end
 
-eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
+eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5)
     if event == "ADDON_LOADED" and arg1 == ADDON_NAME then
         Addon.db = Core.MergeDatabase(RavioliCallboardDB)
         RavioliCallboardDB = Addon.db
@@ -1089,6 +1151,17 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         end
     elseif not Addon.initialized then
         return
+    elseif event == "GOSSIP_SHOW" then
+        if PE.IsBoardVisible() then
+            if PE.MarkBoardAccess then
+                PE.MarkBoardAccess(30)
+            end
+            PE.RequestObjectives()
+            Addon.nextObjectiveRequestAt = now() + 1
+            if Addon.running then
+                Addon.nextActionAt = now() + 0.10
+            end
+        end
     elseif event == "QUEST_DETAIL" then
         handleQuestDetail()
     elseif event == "QUEST_ACCEPTED" then
@@ -1099,6 +1172,8 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1, arg2)
         handleQuestComplete()
     elseif event == "QUEST_LOG_UPDATE" or event == "QUEST_FINISHED" then
         updateWaitingState()
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        handleSummonSpellSucceeded(arg1, arg2, arg3, arg4, arg5)
     elseif event == "PLAYER_ENTERING_WORLD" then
         Addon.lastBoardVisible = false
     end
@@ -1117,9 +1192,11 @@ end)
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("QUEST_DETAIL")
+eventFrame:RegisterEvent("GOSSIP_SHOW")
 eventFrame:RegisterEvent("QUEST_ACCEPTED")
 eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("QUEST_COMPLETE")
 eventFrame:RegisterEvent("QUEST_FINISHED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 pcall(eventFrame.RegisterEvent, eventFrame, "QUEST_TURNED_IN")
+pcall(eventFrame.RegisterEvent, eventFrame, "UNIT_SPELLCAST_SUCCEEDED")

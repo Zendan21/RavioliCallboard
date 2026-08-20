@@ -399,13 +399,29 @@ function UI:UpdateSummonCooldown()
     if (not self.summon and not self.miniSummon) or not Addon.PE or not Addon.PE.GetSummonCooldownRemaining then
         return
     end
+    local boardVisible = Addon.PE.IsBoardVisible and Addon.PE.IsBoardVisible() or false
+    local probeNearby = Addon.pendingBoardOpen ~= nil
+        or (self.frame and self.frame.IsShown and self.frame:IsShown())
+        or (self.miniFrame and self.miniFrame.IsShown and self.miniFrame:IsShown())
+    local nearbyBoard = probeNearby and Addon.PE.IsCallboardNearby and Addon.PE.IsCallboardNearby() or false
+    local canSummon = Addon.PE.IsSummonSpellKnown and Addon.PE.IsSummonSpellKnown() or true
     local remaining = Addon.PE.GetSummonCooldownRemaining()
     local seconds = remaining > 0 and math.max(1, math.ceil(remaining)) or 0
-    if self.lastSummonCooldownSecond == seconds then
+    local stateKey = tostring(seconds) .. ":" .. tostring(boardVisible) .. ":" .. tostring(nearbyBoard) .. ":" .. tostring(canSummon)
+    if self.lastSummonCooldownState == stateKey then
         return
     end
-    self.lastSummonCooldownSecond = seconds
-    local label = seconds > 0 and ("Callboard " .. tostring(seconds) .. "s") or "Summon Board"
+    self.lastSummonCooldownState = stateKey
+    local label
+    if boardVisible then
+        label = "Board Open"
+    elseif nearbyBoard then
+        label = "Open Board"
+    elseif not canSummon then
+        label = "Open City Board"
+    else
+        label = seconds > 0 and ("Callboard " .. tostring(seconds) .. "s") or "Summon Board"
+    end
     if self.summon then
         setButtonText(self.summon, label)
     end
@@ -414,19 +430,34 @@ function UI:UpdateSummonCooldown()
     end
 end
 
-function UI:UpdateStartAction()
+function UI:UpdateStartAction(forceNearbyScan)
     if not self.start or not Addon.PE or not Addon.PE.IsBoardVisible then
         return
     end
     if InCombatLockdown and InCombatLockdown() then
         return
     end
-    local shouldCast = not Addon.PE.IsBoardVisible()
-    if self.startActionCasts == shouldCast then
+    local boardVisible = Addon.PE.IsBoardVisible()
+    local probeNearby = forceNearbyScan == true or Addon.pendingBoardOpen ~= nil
+        or (self.frame and self.frame.IsShown and self.frame:IsShown())
+        or (self.miniFrame and self.miniFrame.IsShown and self.miniFrame:IsShown())
+    local nearbyBoard = probeNearby and Addon.PE.IsCallboardNearby
+        and Addon.PE.IsCallboardNearby(forceNearbyScan == true) or false
+    local canSummon = Addon.PE.IsSummonSpellKnown and Addon.PE.IsSummonSpellKnown() or true
+    local summonCooldown = Addon.PE.GetSummonCooldownRemaining and Addon.PE.GetSummonCooldownRemaining() or 0
+    local macroText = (not boardVisible and not nearbyBoard and canSummon
+        and summonCooldown <= 0 and Addon.pendingBoardOpen == nil) and "/cast Summon Callboard" or ""
+    if self.boardActionMacro == macroText then
         return
     end
-    self.startActionCasts = shouldCast
-    self.start:SetAttribute("macrotext", shouldCast and "/cast Summon Callboard" or "")
+    self.boardActionMacro = macroText
+    self.start:SetAttribute("macrotext", macroText)
+    if self.summon then
+        self.summon:SetAttribute("macrotext", macroText)
+    end
+    if self.miniSummon then
+        self.miniSummon:SetAttribute("macrotext", macroText)
+    end
 end
 
 function UI:SaveMiniLayout()
@@ -1209,7 +1240,13 @@ function UI:Create()
     self.start:SetScript("PostClick", function()
         Addon:BeginStartFlow()
     end)
-    self.startActionCasts = true
+    if self.start.HookScript then
+        self.start:HookScript("OnEnter", function()
+            UI:UpdateStartAction(true)
+            UI:UpdateSummonCooldown()
+        end)
+    end
+    self.boardActionMacro = nil
     self:UpdateStartAction()
 
     self.summon = CreateFrame("Button", "RavioliCallboardSummonButton", self.navPanel, "SecureActionButtonTemplate")
@@ -1222,6 +1259,12 @@ function UI:Create()
     self.summon:SetScript("PostClick", function()
         Addon:BeginBoardOpenFlow(false)
     end)
+    if self.summon.HookScript then
+        self.summon:HookScript("OnEnter", function()
+            UI:UpdateStartAction(true)
+            UI:UpdateSummonCooldown()
+        end)
+    end
     self:UpdateSummonCooldown()
 
     self.advance = makeButton(self.navPanel, "Complete Step", 124, 30)
@@ -1309,6 +1352,12 @@ function UI:Create()
     self.miniSummon:SetScript("PostClick", function()
         Addon:BeginBoardOpenFlow(false)
     end)
+    if self.miniSummon.HookScript then
+        self.miniSummon:HookScript("OnEnter", function()
+            UI:UpdateStartAction(true)
+            UI:UpdateSummonCooldown()
+        end)
+    end
 
     self.miniStop = makeButton(self.miniFrame, "STOP", 90, 28)
     self.miniStop:SetPoint("LEFT", self.miniSummon, "RIGHT", 8, 0)
@@ -1381,7 +1430,9 @@ function UI:Create()
         UI:SaveMiniLayout()
     end)
     self.miniFrame:Hide()
-    self.lastSummonCooldownSecond = nil
+    self.boardActionMacro = nil
+    self.lastSummonCooldownState = nil
+    self:UpdateStartAction()
     self:UpdateSummonCooldown()
 
     if type(UISpecialFrames) == "table" then
